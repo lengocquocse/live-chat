@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Bash - HTTP Command Execution</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f4f6;
+            --bg-tertiary: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border: #d1d5db;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --primary: #3b82f6;
+            --primary-dark: #60a5fa;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-primary: #1f2937;
+            --bg-secondary: #111827;
+            --bg-tertiary: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --border: #4b5563;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: var(--bg-primary);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px var(--shadow);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px var(--shadow);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        textarea {
+            font-family: 'Consolas', 'Monaco', monospace;
+            resize: vertical;
+        }
+
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .button-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .button-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+        }
+
+        .button-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .button-secondary:hover:not(:disabled) {
+            background: var(--border);
+        }
+
+        .button-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .button-danger:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .output-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .output-line {
+            margin-bottom: 2px;
+            word-wrap: break-word;
+        }
+
+        .output-stdout {
+            color: var(--text-primary);
+        }
+
+        .output-stderr {
+            color: var(--danger);
+        }
+
+        .output-info {
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .output-success {
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        .output-error {
+            color: var(--danger);
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-running {
+            background: var(--warning);
+            color: white;
+        }
+
+        .status-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .status-error {
+            background: var(--danger);
+            color: white;
+        }
+
+        .status-idle {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .env-vars {
+            margin-top: 10px;
+        }
+
+        .env-var-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .env-var-item input {
+            margin: 0;
+        }
+
+        .icon-button {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .icon-button:hover {
+            background: var(--bg-tertiary);
+            color: var(--danger);
+        }
+
+        .history-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .history-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .history-command {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .history-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .settings-panel {
+            margin-top: 20px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--bg-tertiary);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            padding: 10px 16px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .execution-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <span>⚡</span>
+                Live Bash Control
+            </h1>
+            <div class="header-actions">
+                <span class="status-badge" id="statusBadge">Idle</span>
+                <button class="theme-toggle" id="themeToggle">🌙 Dark Mode</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div>
+                <!-- Command Execution Card -->
+                <div class="card">
+                    <div class="card-title">
+                        <span>Command Execution</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="commandInput">Command *</label>
+                        <textarea id="commandInput" rows="3" placeholder="echo Hello World"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="workingDir">Working Directory (optional)</label>
+                        <input type="text" id="workingDir" placeholder="/home/user/projects">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="timeout">Timeout (ms, optional)</label>
+                        <input type="number" id="timeout" placeholder="120000" min="1000" max="600000">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Environment Variables (optional)</label>
+                        <div class="env-vars" id="envVars">
+                            <!-- Environment variables will be added here -->
+                        </div>
+                        <button class="button button-secondary" onclick="addEnvVar()">+ Add Variable</button>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="streamingMode" checked>
+                        <label for="streamingMode" style="margin-bottom: 0;">Enable real-time streaming</label>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="button button-primary" id="executeBtn" onclick="executeCommand()">
+                            <span id="executeBtnText">Execute</span>
+                        </button>
+                        <button class="button button-danger" id="clearBtn" onclick="clearOutput()">Clear Output</button>
+                    </div>
+                </div>
+
+                <!-- Output Card -->
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-title">
+                        <span>Output</span>
+                        <div id="executionStats" style="display: none;">
+                            <small style="color: var(--text-secondary);">
+                                Exit Code: <span id="exitCode">-</span> |
+                                Time: <span id="execTime">-</span>ms
+                            </small>
+                        </div>
+                    </div>
+                    <div class="output-container" id="output">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📟</div>
+                            <p>Command output will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <!-- Settings Card -->
+                <div class="card">
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchTab('settings')">Settings</button>
+                        <button class="tab" onclick="switchTab('history')">History</button>
+                    </div>
+
+                    <div id="settingsTab" class="tab-content active">
+                        <div class="form-group">
+                            <label for="apiKey">API Key *</label>
+                            <input type="text" id="apiKey" placeholder="dev-api-key-12345" value="dev-api-key-12345">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="serverUrl">Server URL</label>
+                            <input type="text" id="serverUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
+                        </div>
+
+                        <button class="button button-primary" onclick="saveSettings()">Save Settings</button>
+
+                        <div id="settingsAlert" style="margin-top: 16px;"></div>
+                    </div>
+
+                    <div id="historyTab" class="tab-content">
+                        <div style="margin-bottom: 12px; display: flex; justify-content: space-between;">
+                            <button class="button button-secondary" onclick="loadHistory()">🔄 Refresh</button>
+                            <button class="button button-danger" onclick="clearHistory()">Clear All</button>
+                        </div>
+                        <div class="history-list" id="historyList">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📋</div>
+                                <p>No command history</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let eventSource = null;
+        let executing = false;
+
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeButton(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeButton(newTheme);
+        }
+
+        function updateThemeButton(theme) {
+            const btn = document.getElementById('themeToggle');
+            btn.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+        // Settings management
+        function loadSettings() {
+            const apiKey = localStorage.getItem('apiKey') || 'dev-api-key-12345';
+            const serverUrl = localStorage.getItem('serverUrl') || 'http://localhost:3000';
+
+            document.getElementById('apiKey').value = apiKey;
+            document.getElementById('serverUrl').value = serverUrl;
+        }
+
+        function saveSettings() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+
+            if (!apiKey) {
+                showAlert('settingsAlert', 'API Key is required', 'error');
+                return;
+            }
+
+            localStorage.setItem('apiKey', apiKey);
+            localStorage.setItem('serverUrl', serverUrl);
+
+            showAlert('settingsAlert', 'Settings saved successfully!', 'success');
+        }
+
+        function getSettings() {
+            return {
+                apiKey: localStorage.getItem('apiKey') || 'dev-api-key-12345',
+                serverUrl: localStorage.getItem('serverUrl') || 'http://localhost:3000'
+            };
+        }
+
+        // Tab management
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+
+            if (tabName === 'history') {
+                loadHistory();
+            }
+        }
+
+        // Environment variables
+        function addEnvVar() {
+            const container = document.getElementById('envVars');
+            const item = document.createElement('div');
+            item.className = 'env-var-item';
+            item.innerHTML = `
+                <input type="text" placeholder="KEY" class="env-key">
+                <input type="text" placeholder="value" class="env-value">
+                <button class="icon-button" onclick="this.parentElement.remove()">✕</button>
+            `;
+            container.appendChild(item);
+        }
+
+        function getEnvVars() {
+            const envVars = {};
+            document.querySelectorAll('.env-var-item').forEach(item => {
+                const key = item.querySelector('.env-key').value.trim();
+                const value = item.querySelector('.env-value').value.trim();
+                if (key && value) {
+                    envVars[key] = value;
+                }
+            });
+            return Object.keys(envVars).length > 0 ? envVars : undefined;
+        }
+
+        // Output management
+        function clearOutput() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📟</div><p>Command output will appear here</p></div>';
+            document.getElementById('executionStats').style.display = 'none';
+        }
+
+        function appendOutput(text, type = 'stdout') {
+            const output = document.getElementById('output');
+
+            // Remove empty state if present
+            const emptyState = output.querySelector('.empty-state');
+            if (emptyState) {
+                output.innerHTML = '';
+            }
+
+            const line = document.createElement('div');
+            line.className = `output-line output-${type}`;
+            line.textContent = text;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function updateStatus(status, text = null) {
+            const badge = document.getElementById('statusBadge');
+            badge.className = 'status-badge status-' + status;
+            badge.textContent = text || status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        function showExecutionStats(exitCode, executionTime) {
+            document.getElementById('exitCode').textContent = exitCode;
+            document.getElementById('execTime').textContent = executionTime;
+            document.getElementById('executionStats').style.display = 'block';
+        }
+
+        // Command execution
+        async function executeCommand() {
+            if (executing) return;
+
+            const command = document.getElementById('commandInput').value.trim();
+            if (!command) {
+                alert('Please enter a command');
+                return;
+            }
+
+            const settings = getSettings();
+            const isStreaming = document.getElementById('streamingMode').checked;
+
+            const requestBody = {
+                command: command,
+                workingDirectory: document.getElementById('workingDir').value.trim() || undefined,
+                timeout: document.getElementById('timeout').value ? parseInt(document.getElementById('timeout').value) : undefined,
+                env: getEnvVars()
+            };
+
+            executing = true;
+            clearOutput();
+            updateStatus('running', 'Executing...');
+
+            const executeBtn = document.getElementById('executeBtn');
+            executeBtn.disabled = true;
+            executeBtn.innerHTML = '<span class="spinner"></span><span>Executing...</span>';
+
+            try {
+                if (isStreaming) {
+                    await executeStreamingCommand(settings, requestBody);
+                } else {
+                    await executeStandardCommand(settings, requestBody);
+                }
+            } catch (error) {
+                appendOutput(`Error: ${error.message}`, 'error');
+                updateStatus('error', 'Error');
+            } finally {
+                executing = false;
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '<span>Execute</span>';
+            }
+        }
+
+        async function executeStreamingCommand(settings, requestBody) {
+            return new Promise((resolve, reject) => {
+                const url = `${settings.serverUrl}/api/commands/execute-stream`;
+
+                eventSource = new EventSource(url);
+
+                // We need to send the request body via POST, but EventSource doesn't support POST
+                // So we'll use fetch to POST, then listen for SSE events
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                }).then(async response => {
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Request failed');
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.substring(6));
+
+                                    if (data.type === 'stdout' || data.type === 'stderr') {
+                                        appendOutput(data.data, data.type);
+                                    } else if (data.exitCode !== undefined) {
+                                        // Complete event
+                                        showExecutionStats(data.exitCode, data.executionTime);
+                                        if (data.exitCode === 0) {
+                                            appendOutput('\n✓ Command completed successfully', 'success');
+                                            updateStatus('success', 'Success');
+                                        } else {
+                                            appendOutput(`\n✗ Command failed with exit code ${data.exitCode}`, 'error');
+                                            updateStatus('error', 'Failed');
+                                        }
+                                        resolve();
+                                    } else if (data.error) {
+                                        appendOutput(`Error: ${data.error}`, 'error');
+                                        updateStatus('error', 'Error');
+                                        reject(new Error(data.error));
+                                    }
+                                } catch (e) {
+                                    console.error('Failed to parse SSE data:', e);
+                                }
+                            }
+                        }
+                    }
+                }).catch(error => {
+                    appendOutput(`Connection error: ${error.message}`, 'error');
+                    updateStatus('error', 'Error');
+                    reject(error);
+                });
+            });
+        }
+
+        async function executeStandardCommand(settings, requestBody) {
+            const response = await fetch(`${settings.serverUrl}/api/commands/execute`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${settings.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Command execution failed');
+            }
+
+            appendOutput(result.output, 'stdout');
+            showExecutionStats(result.exitCode, result.executionTime);
+
+            if (result.success) {
+                appendOutput('\n✓ Command completed successfully', 'success');
+                updateStatus('success', 'Success');
+            } else {
+                appendOutput(`\n✗ Command failed with exit code ${result.exitCode}`, 'error');
+                updateStatus('error', 'Failed');
+            }
+        }
+
+        // History management
+        async function loadHistory() {
+            const settings = getSettings();
+            const historyList = document.getElementById('historyList');
+
+            try {
+                const response = await fetch(`${settings.serverUrl}/api/history?limit=20`, {
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load history');
+                }
+
+                const data = await response.json();
+
+                if (data.entries.length === 0) {
+                    historyList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No command history</p></div>';
+                    return;
+                }
+
+                historyList.innerHTML = data.entries.map(entry => `
+                    <div class="history-item" onclick="viewHistoryEntry('${entry.id}')">
+                        <div class="history-command">${escapeHtml(entry.command)}</div>
+                        <div class="history-meta">
+                            <span>${new Date(entry.timestamp).toLocaleString()}</span>
+                            <span class="status-badge ${entry.success ? 'status-success' : 'status-error'}">
+                                Exit: ${entry.exitCode}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                historyList.innerHTML = `<div class="alert alert-error">Failed to load history: ${error.message}</div>`;
+            }
+        }
+
+        async function viewHistoryEntry(id) {
+            const settings = getSettings();
+
+            try {
+                const response = await fetch(`${settings.serverUrl}/api/history/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load history entry');
+                }
+
+                const data = await response.json();
+                const entry = data.entry;
+
+                // Populate form with history entry data
+                document.getElementById('commandInput').value = entry.command;
+                document.getElementById('workingDir').value = entry.workingDirectory || '';
+
+                // Show output
+                clearOutput();
+                appendOutput(entry.output, 'stdout');
+                showExecutionStats(entry.exitCode, entry.executionTime);
+
+                // Switch to settings tab
+                switchTab('settings');
+
+                // Scroll to output
+                document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                alert('Failed to load history entry: ' + error.message);
+            }
+        }
+
+        async function clearHistory() {
+            if (!confirm('Are you sure you want to clear all command history?')) {
+                return;
+            }
+
+            const settings = getSettings();
+
+            try {
+                const response = await fetch(`${settings.serverUrl}/api/history`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to clear history');
+                }
+
+                loadHistory();
+                alert('History cleared successfully');
+
+            } catch (error) {
+                alert('Failed to clear history: ' + error.message);
+            }
+        }
+
+        // Utility functions
+        function showAlert(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                element.innerHTML = '';
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Keyboard shortcuts
+        document.getElementById('commandInput').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                executeCommand();
+            }
+        });
+
+        // Initialize
+        initTheme();
+        loadSettings();
+        updateStatus('idle', 'Idle');
+    </script>
+</body>
+</html>
